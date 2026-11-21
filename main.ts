@@ -28,6 +28,8 @@ const O = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
 
 /** The most states one room's search keeps before it gives up. */
 const MAX_ROOM_STATES = 500_000;
+/** A room that gives up is tried once more with this larger budget before the level is given up on. */
+const MAX_ROOM_STATES_RETRY = 2_000_000;
 /** The most states the whole-level fallback search keeps. */
 const MAX_LEVEL_STATES = 1_000_000;
 
@@ -344,7 +346,13 @@ function solveLevel(text: string): string {
     for (const other of rooms) {
       if (other !== room) for (const b of other.done ? other.goals : other.boxes) wall[b] = 1;
     }
-    const solved = solvePushes(level.w, level.h, wall, room.goals.slice().sort((a, b) => a - b), room.boxes.slice().sort((a, b) => a - b), player, MAX_ROOM_STATES);
+    // A room that gives up on its first budget is tried once more with a
+    // larger one: the rooms are kept solvable within a smaller budget, so the
+    // retry is only a safety net, and it costs nothing when it never runs.
+    let solved = solvePushes(level.w, level.h, wall, room.goals.slice().sort((a, b) => a - b), room.boxes.slice().sort((a, b) => a - b), player, MAX_ROOM_STATES);
+    if (solved === null) {
+      solved = solvePushes(level.w, level.h, wall, room.goals.slice().sort((a, b) => a - b), room.boxes.slice().sort((a, b) => a - b), player, MAX_ROOM_STATES_RETRY);
+    }
     if (solved === null) return '';
     moves += solved.moves;
     player = endOf(level.w, player, solved.moves);
